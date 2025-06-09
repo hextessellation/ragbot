@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Document{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card animate__animated animate__fadeIn">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-file-upload fa-2x me-3"></i>
+                        <h4 class="mb-0">Upload a New Document</h4>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} animate__animated animate__fadeIn">
+                                <i class="fas fa-info-circle me-2"></i>
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <form method="post" enctype="multipart/form-data" id="uploadForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.title.id_for_label }}" class="form-label">
+                                <i class="fas fa-heading me-1"></i> Document Title
+                            </label>
+                            {{ form.title }}
+                            {% if form.title.errors %}
+                                <div class="text-danger mt-2">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {{ form.title.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Enhanced File Upload -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-file me-1"></i> Document Upload
+                            </label>
+                            
+                            <div id="drop-area" class="drop-area mb-2">
+                                <div class="drop-message text-center py-5">
+                                    <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"></i>
+                                    <h5>Drag & Drop File Here</h5>
+                                    <p class="text-muted">or</p>
+                                    <label for="{{ form.file.id_for_label }}" class="btn btn-outline-primary">
+                                        <i class="fas fa-folder-open me-1"></i> Browse Files
+                                    </label>
+                                    <div style="display: none;">
+                                        {{ form.file }}
+                                    </div>
+                                </div>
+                                <div id="file-preview" class="file-preview" style="display: none;">
+                                    <div class="d-flex align-items-center p-3">
+                                        <i class="fas fa-file-alt fa-2x me-3 text-primary"></i>
+                                        <div class="flex-grow-1">
+                                            <h6 id="file-name" class="mb-1"></h6>
+                                            <small id="file-size" class="text-muted"></small>
+                                        </div>
+                                        <button type="button" id="remove-file" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="supported-formats">
+                                <small class="text-muted d-block mb-2">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    <strong>Supported formats:</strong> 
+                                    <span class="badge bg-light text-dark me-1">PDF</span>
+                                    <span class="badge bg-light text-dark me-1">DOCX</span>
+                                    <span class="badge bg-light text-dark me-1">XLSX</span>
+                                    <span class="badge bg-light text-dark me-1">CSV</span>
+                                    <span class="badge bg-light text-dark me-1">TXT</span>
+                                    <span class="badge bg-light text-dark me-1">MD</span>
+                                    <span class="badge bg-light text-dark me-1">JSON</span>
+                                    <span class="badge bg-light text-dark me-1">XML</span>
+                                </small>
+                            </div>
+                            
+                            {% if form.file.errors %}
+                                <div class="text-danger mt-2">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {{ form.file.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="divider d-flex align-items-center my-4">
+                            <div class="flex-grow-1 border-top"></div>
+                            <div class="px-3 text-muted">OR</div>
+                            <div class="flex-grow-1 border-top"></div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.content.id_for_label }}" class="form-label">
+                                <i class="fas fa-keyboard me-1"></i> Paste Text Content
+                            </label>
+                            {{ form.content }}
+                            <small class="text-muted d-block mt-1">
+                                <i class="fas fa-info-circle me-1"></i>
+                                {{ form.content.help_text }}
+                            </small>
+                            {% if form.content.errors %}
+                                <div class="text-danger mt-2">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {{ form.content.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {% if form.non_field_errors %}
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    {{ form.non_field_errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'documents' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Back to Documents
+                            </a>
+                            <button type="submit" id="submit-btn" class="btn btn-primary">
+                                <i class="fas fa-upload me-1"></i> Upload Document
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .drop-area {
+        border: 2px dashed #ccc;
+        border-radius: var(--border-radius);
+        transition: all 0.3s;
+        background-color: #f8f9fa;
+        cursor: pointer;
+    }
+    
+    .drop-area.highlight {
+        border-color: var(--primary-color);
+        background-color: rgba(67, 97, 238, 0.05);
+    }
+    
+    .file-preview {
+        border: 1px solid #eee;
+        border-radius: var(--border-radius);
+        background-color: #fff;
+    }
+    
+    .divider {
+        margin: 2rem 0;
+        line-height: 1;
+    }
+    
+    /* Style form elements */
+    #id_title, #id_content {
+        border-radius: var(--border-radius);
+        border: 1px solid #ced4da;
+        transition: all 0.3s;
+    }
+    
+    #id_title:focus, #id_content:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
+    }
+    
+    #id_content {
+        min-height: 150px;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropArea = document.getElementById('drop-area');
+        const fileInput = document.getElementById('{{ form.file.id_for_label }}');
+        const filePreview = document.getElementById('file-preview');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+        const removeFileBtn = document.getElementById('remove-file');
+        const dropMessage = document.querySelector('.drop-message');
+        const contentTextarea = document.getElementById('{{ form.content.id_for_label }}');
+        
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Update file preview
+        function updateFilePreview(file) {
+            if (file) {
+                fileName.textContent = file.name;
+                fileSize.textContent = formatFileSize(file.size);
+                filePreview.style.display = 'block';
+                dropMessage.style.display = 'none';
+                
+                // Disable the content textarea when a file is selected
+                contentTextarea.disabled = true;
+                contentTextarea.placeholder = 'Content input is disabled when a file is uploaded';
+            } else {
+                filePreview.style.display = 'none';
+                dropMessage.style.display = 'block';
+                
+                // Enable the content textarea when no file is selected
+                contentTextarea.disabled = false;
+                contentTextarea.placeholder = 'Enter the content of your document here...';
+            }
+        }
+        
+        // Handle file input change
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                updateFilePreview(file);
+            }
+        });
+        
+        // Remove selected file
+        removeFileBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            fileInput.value = '';
+            updateFilePreview(null);
+        });
+        
+        // Prevent defaults for drag events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+        
+        // Highlight drop area when dragging over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, function() {
+                dropArea.classList.add('highlight');
+            }, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, function() {
+                dropArea.classList.remove('highlight');
+            }, false);
+        });
+        
+        // Handle dropped files
+        dropArea.addEventListener('drop', function(e) {
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                fileInput.files = e.dataTransfer.files;
+                updateFilePreview(file);
+            }
+        }, false);
+        
+        // Click on drop area to trigger file input
+        dropArea.addEventListener('click', function() {
+            fileInput.click();
+        });
+        
+        // Disable one input when the other has content
+        contentTextarea.addEventListener('input', function() {
+            if (this.value.trim()) {
+                fileInput.disabled = true;
+                dropArea.style.opacity = '0.5';
+                dropArea.style.pointerEvents = 'none';
+            } else {
+                fileInput.disabled = false;
+                dropArea.style.opacity = '1';
+                dropArea.style.pointerEvents = 'auto';
+            }
+        });
+        
+        // Show loading state on form submit
+        document.getElementById('uploadForm').addEventListener('submit', function() {
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Uploading...';
+        });
+    });
+</script>
+{% endblock %}

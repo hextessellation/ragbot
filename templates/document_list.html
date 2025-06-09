@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}My Documents{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="fas fa-file-alt me-2"></i>My Documents</h2>
+        <a href="{% url 'upload_document' %}" class="btn btn-primary animate__animated animate__pulse">
+            <i class="fas fa-upload me-1"></i> Upload New Document
+        </a>
+    </div>
+    
+    {% if documents %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            {% for document in documents %}
+                <div class="col animate__animated animate__fadeIn">
+                    <div class="card h-100 document-card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0 text-truncate" title="{{ document.title }}">
+                                    {{ document.title }}
+                                </h5>
+                                <span class="badge {% if document.is_processed %}bg-success{% else %}bg-warning{% endif %}">
+                                    {% if document.is_processed %}
+                                        <i class="fas fa-check-circle"></i> Processed
+                                    {% else %}
+                                        <i class="fas fa-exclamation-triangle"></i> Pending
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="document-info mb-3">
+                                <p class="mb-1">
+                                    <i class="fas fa-calendar me-2"></i>
+                                    <strong>Uploaded:</strong> {{ document.uploaded_at|date:"F j, Y" }}
+                                </p>
+                                
+                                {% if document.is_processed %}
+                                    <p class="mb-1 text-success">
+                                        <i class="fas fa-cubes me-2"></i>
+                                        <strong>Chunks:</strong> {{ document.chunks }}
+                                    </p>
+                                    <p class="mb-1">
+                                        <i class="fas fa-clock me-2"></i>
+                                        <strong>Last processed:</strong> {{ document.last_processed|date:"F j, Y" }}
+                                    </p>
+                                {% else %}
+                                    {% if document.processing_error %}
+                                        <p class="mb-1 text-danger">
+                                            <i class="fas fa-exclamation-circle me-2"></i>
+                                            <strong>Error:</strong> {{ document.processing_error }}
+                                        </p>
+                                    {% else %}
+                                        <p class="mb-1 text-warning">
+                                            <i class="fas fa-hourglass-half me-2"></i>
+                                            <strong>Status:</strong> Waiting for processing
+                                        </p>
+                                    {% endif %}
+                                {% endif %}
+                                
+                                {% if document.file %}
+                                    <p class="mb-1">
+                                        <i class="fas fa-file-alt me-2"></i>
+                                        <strong>File type:</strong> 
+                                        <span class="badge bg-light text-dark">{{ document.file_type|upper }}</span>
+                                    </p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'chat' document.id %}" class="btn btn-primary">
+                                    <i class="fas fa-comments me-1"></i> Chat
+                                </a>
+                                <div>
+                                    <a href="{% url 'reprocess_document' document.id %}" class="btn btn-outline-secondary me-1" 
+                                       data-bs-toggle="tooltip" data-bs-placement="top" title="Reprocess document">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </a>
+                                    <a href="{% url 'delete_document' document.id %}" class="btn btn-outline-danger"
+                                       data-bs-toggle="tooltip" data-bs-placement="top" title="Delete document">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center p-5 bg-light rounded animate__animated animate__fadeIn">
+            <div class="mb-4">
+                <i class="fas fa-file-upload fa-4x text-muted"></i>
+            </div>
+            <h4>No Documents Yet</h4>
+            <p class="text-muted">You haven't uploaded any documents yet.</p>
+            <a href="{% url 'upload_document' %}" class="btn btn-primary mt-2">
+                <i class="fas fa-plus me-1"></i> Upload Your First Document
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+    .document-card {
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .document-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .card-header {
+        background: linear-gradient(135deg, rgba(250,250,250,1) 0%, rgba(240,240,240,1) 100%);
+    }
+    
+
+    .card-title {
+        max-width: 70%;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Debug Document{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Document Debug: {{ document.title }}</h1>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            Document Details
+        </div>
+        <div class="card-body">
+            <p><strong>ID:</strong> {{ document.id }}</p>
+            <p><strong>Uploaded by:</strong> {{ document.uploaded_by }}</p>
+            <p><strong>Is processed:</strong> {{ document.is_processed }}</p>
+            <p><strong>Chunks:</strong> {{ document.chunks }}</p>
+            <p><strong>Last processed:</strong> {{ document.last_processed }}</p>
+            {% if document.processing_error %}
+                <p><strong>Error:</strong> {{ document.processing_error }}</p>
+            {% endif %}
+            
+            {% if file_info %}
+            <div class="mt-3">
+                <h6>File Information:</h6>
+                <ul>
+                    <li><strong>Name:</strong> {{ file_info.name }}</li>
+                    <li><strong>Size:</strong> {{ file_info.size }}</li>
+                    <li><strong>Type:</strong> {{ file_info.type|upper }}</li>
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            API Status
+        </div>
+        <div class="card-body">
+            <p>API Connection: <span class="badge {% if api_status %}bg-success{% else %}bg-danger{% endif %}">
+                {{ api_status|yesno:"Connected,Not Connected" }}
+            </span></p>
+        </div>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            Vector Store Retrieval Test
+        </div>
+        <div class="card-body">
+            <p>Retrieval Success: <span class="badge {% if retrieval_success %}bg-success{% else %}bg-danger{% endif %}">
+                {{ retrieval_success|yesno:"Success,Failed" }}
+            </span></p>
+            
+            <h5>Response:</h5>
+            <pre>{{ response }}</pre>
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <a href="{% url 'reprocess_document' document.id %}" class="btn btn-primary">
+            Reprocess Document
+        </a>
+        <a href="{% url 'documents' %}" class="btn btn-secondary">
+            Back to Documents
+        </a>
+    </div>
+</div>
+{% endblock %}

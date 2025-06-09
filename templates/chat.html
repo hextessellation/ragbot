@@ -1,0 +1,575 @@
+{% extends 'base.html' %}
+
+{% block title %}Chat - {{ document.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Smooth scrolling behavior */
+    html {
+        scroll-behavior: smooth;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-10 offset-lg-1">
+            <div class="card animate__animated animate__fadeIn">
+                <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-comments me-2"></i>
+                        Chat about "{{ document.title }}"
+                    </h4>
+                    <div>
+                        <a href="{% url 'delete_document' document.id %}" class="btn btn-sm btn-danger me-1" 
+                           data-bs-toggle="tooltip" data-bs-placement="bottom" title="Delete this document">
+                            <i class="fa fa-trash"></i> Delete
+                        </a>
+                        <a href="{% url 'documents' %}" class="btn btn-sm btn-light" 
+                           data-bs-toggle="tooltip" data-bs-placement="bottom" title="Return to document list">
+                            <i class="fa fa-arrow-left"></i> Back
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    {% if not api_active %}
+                    <div class="alert alert-warning animate__animated animate__fadeIn">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h5 class="alert-heading">API Connectivity Issue</h5>
+                                <p class="mb-0">The AI API is currently unavailable. Chat responses may not work correctly.</p>
+                                {% if user.is_staff %}
+                                <a href="{% url 'api_status' %}" class="alert-link">Check API status <i class="fas fa-arrow-right ms-1"></i></a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="document-preview mb-3">
+                        <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#documentContent" aria-expanded="false">
+                            <i class="fa fa-file-text me-1"></i> Toggle Document Content
+                        </button>
+                        <div class="collapse mt-2" id="documentContent">
+                            <div class="card card-body bg-light">
+                                <div class="document-content p-3">{{ document.content }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chat Messages -->
+                    <div id="chat-container" class="chat-container shadow-sm">
+                        {% for message in chat_messages %}
+                            <div class="message animate__animated animate__fadeIn {% if message.is_user %}user{% else %}ai{% endif %}">
+                                <div class="message-header">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <strong>
+                                            {% if message.is_user %}
+                                                <i class="fas fa-user me-1"></i> You
+                                            {% else %}
+                                                <i class="fas fa-robot me-1"></i> AI Assistant
+                                            {% endif %}
+                                        </strong>
+                                        <small class="text-muted">{{ message.timestamp|date:"F j, Y, g:i a" }}</small>
+                                    </div>
+                                </div>
+                                <div class="message-content">
+                                    {% if message.is_user %}
+                                        {{ message.message|linebreaks }}
+                                    {% else %}
+                                        <div class="markdown-content">{{ message.message }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="text-center text-muted p-5 animate__animated animate__fadeIn">
+                                <div class="mb-3">
+                                    <i class="fas fa-comments fa-3x mb-3 text-primary opacity-50"></i>
+                                </div>
+                                <h5>No messages yet</h5>
+                                <p>Start asking questions about this document to get AI-powered responses!</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Chat Input Form -->
+                    <form id="chat-form" method="post" class="mt-3 animate__animated animate__fadeIn">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <div class="input-group">
+                                <textarea id="message-input" name="message" class="form-control" 
+                                          placeholder="Ask something about this document..." rows="2" required></textarea>
+                                <button type="submit" id="send-button" class="btn btn-primary">
+                                    <i class="fa fa-paper-plane me-1"></i> Send
+                                </button>
+                            </div>
+                            <div class="text-muted small text-end mt-1">
+                                <i class="fas fa-info-circle me-1"></i> Press Enter to send, Shift+Enter for new line
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="status-messages" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;"></div>
+
+<style>
+    .chat-container {
+        height: 500px;
+        overflow-y: auto;
+        padding: 20px;
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: var(--border-radius);
+        background-color: #f9f9f9;
+        scroll-behavior: smooth;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+    }
+    
+    .message {
+        margin-bottom: 20px;
+        padding: 15px;
+        border-radius: 18px;
+        position: relative;
+        max-width: 85%;
+        word-break: break-word;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        animation-duration: 0.5s;
+    }
+    
+    .message.user {
+        background: linear-gradient(135deg, #4361ee, #3a0ca3);
+        color: white;
+        margin-left: auto;
+        border-bottom-right-radius: 5px;
+    }
+    
+    .message.ai {
+        background-color: white;
+        margin-right: auto;
+        border-bottom-left-radius: 5px;
+        border-left: 4px solid var(--primary-color);
+    }
+    
+    .message-header {
+        margin-bottom: 8px;
+        font-size: 0.85em;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+        padding-bottom: 5px;
+    }
+    
+    .message.user .message-header {
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .message-content {
+        line-height: 1.5;
+    }
+    
+    .document-content {
+        max-height: 300px;
+        overflow-y: auto;
+        background-color: #fff;
+        padding: 15px;
+        border-radius: var(--border-radius);
+        border-left: 4px solid var(--primary-color);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9rem;
+        white-space: pre-wrap;
+        line-height: 1.5;
+    }
+    
+    /* Enhanced loading animation */
+    .loading-dots {
+        display: inline-flex;
+        align-items: center;
+        height: 30px;
+    }
+    
+    .loading-dots span {
+        animation: pulse 1.5s infinite ease-in-out both;
+        background-color: var(--primary-color);
+        border-radius: 50%;
+        display: inline-block;
+        height: 8px;
+        width: 8px;
+        margin-right: 4px;
+    }
+    
+    .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+    
+    @keyframes pulse {
+        0%, 80%, 100% { transform: scale(0.6); opacity: 0.6; }
+        40% { transform: scale(1.0); opacity: 1; }
+    }
+    
+    /* Improved markdown styling for AI messages */
+    .markdown-content {
+        line-height: 1.6;
+    }
+    
+    .markdown-content pre {
+        background-color: #f8f9fa;
+        padding: 12px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 14px;
+        margin: 12px 0;
+        border-left: 3px solid var(--accent-color);
+    }
+    
+    .markdown-content code {
+        background-color: rgba(0, 0, 0, 0.05);
+        padding: 3px 5px;
+        border-radius: 4px;
+        font-size: 0.9em;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .markdown-content table {
+        border-collapse: collapse;
+        margin: 15px 0;
+        width: 100%;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    
+    .markdown-content th {
+        background-color: #f0f0f0;
+        font-weight: 600;
+    }
+    
+    .markdown-content th, .markdown-content td {
+        border: 1px solid #ddd;
+        padding: 8px 12px;
+    }
+    
+    .markdown-content tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+    
+    .markdown-content blockquote {
+        border-left: 5px solid var(--accent-color);
+        margin-left: 0;
+        padding: 10px 20px;
+        background-color: rgba(76, 201, 240, 0.1);
+        border-radius: 4px;
+    }
+    
+    .markdown-content h1, .markdown-content h2, .markdown-content h3, 
+    .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+        margin-top: 16px;
+        margin-bottom: 12px;
+        font-weight: 600;
+    }
+    
+    .markdown-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 5px;
+        margin: 10px 0;
+    }
+    
+    .markdown-content a {
+        color: var(--primary-color);
+        text-decoration: none;
+    }
+    
+    .markdown-content a:hover {
+        text-decoration: underline;
+    }
+    
+    .markdown-content ul, .markdown-content ol {
+        padding-left: 20px;
+    }
+    
+    .markdown-content hr {
+        border: none;
+        border-top: 2px solid #eee;
+        margin: 20px 0;
+    }
+    
+    /* Input form styling */
+    #message-input {
+        border-radius: var(--border-radius) 0 0 var(--border-radius);
+        resize: none;
+        transition: all 0.3s;
+        border: 1px solid #ced4da;
+    }
+    
+    #message-input:focus {
+        box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
+        border-color: var(--primary-color);
+    }
+    
+    #send-button {
+        border-radius: 0 var(--border-radius) var(--border-radius) 0;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const chatContainer = document.getElementById('chat-container');
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        
+        // Enhanced scroll to bottom of chat with smooth animation
+        function scrollToBottom() {
+            chatContainer.scrollTo({
+                top: chatContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+        
+        // Initial scroll to bottom
+        scrollToBottom();
+        
+        // Create a message element with animation
+        function createMessageElement(isUser, content, timestamp) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message animate__animated animate__fadeIn ${isUser ? 'user' : 'ai'}`;
+            
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'message-header';
+            headerDiv.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <strong>
+                        ${isUser ? 
+                            '<i class="fas fa-user me-1"></i> You' : 
+                            '<i class="fas fa-robot me-1"></i> AI Assistant'}
+                    </strong>
+                    <small class="text-muted">${timestamp}</small>
+                </div>
+            `;
+            
+            const contentDiv = document.createElement('div');
+            
+            // Use markdown for AI responses, simple line breaks for user messages
+            if (isUser) {
+                contentDiv.className = 'message-content';
+                contentDiv.innerHTML = content.replace(/\n/g, '<br>');
+            } else {
+                contentDiv.className = 'message-content markdown-content';
+                // Use marked.js to parse markdown in AI responses
+                contentDiv.innerHTML = marked.parse(content);
+                
+                // Make code blocks copyable
+                setTimeout(() => {
+                    const codeBlocks = contentDiv.querySelectorAll('pre');
+                    codeBlocks.forEach(block => {
+                        const copyBtn = document.createElement('button');
+                        copyBtn.className = 'btn btn-sm btn-light position-absolute top-0 end-0 m-1';
+                        copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+                        copyBtn.title = "Copy code";
+                        copyBtn.style.opacity = "0.7";
+                        copyBtn.addEventListener('click', function() {
+                            const code = block.textContent;
+                            navigator.clipboard.writeText(code).then(() => {
+                                copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                                setTimeout(() => {
+                                    copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+                                }, 2000);
+                            });
+                        });
+                        
+                        // Make block position relative for the button
+                        block.style.position = 'relative';
+                        block.appendChild(copyBtn);
+                    });
+                }, 100);
+            }
+            
+            messageDiv.appendChild(headerDiv);
+            messageDiv.appendChild(contentDiv);
+            return messageDiv;
+        }
+        
+        // Create enhanced loading indicator
+        function createLoadingIndicator() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message ai loading animate__animated animate__fadeIn';
+            loadingDiv.innerHTML = `
+                <div class="message-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong><i class="fas fa-robot me-1"></i> AI Assistant</strong>
+                        <small class="text-muted">Processing...</small>
+                    </div>
+                </div>
+                <div class="message-content">
+                    <div class="loading-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            return loadingDiv;
+        }
+        
+        // Enhanced status message with animations
+        function showStatusMessage(message, type = 'info', autodismiss = true) {
+            const statusArea = document.getElementById('status-messages') || createStatusArea();
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show animate__animated animate__fadeInRight`;
+            
+            // Add appropriate icon based on message type
+            let icon = 'info-circle';
+            if (type === 'success') icon = 'check-circle';
+            if (type === 'warning') icon = 'exclamation-triangle';
+            if (type === 'danger') icon = 'exclamation-circle';
+            
+            alert.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${icon} me-2"></i>
+                    <div>${message}</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            statusArea.appendChild(alert);
+            
+            if (autodismiss) {
+                setTimeout(() => {
+                    alert.classList.remove('animate__fadeInRight');
+                    alert.classList.add('animate__fadeOutRight');
+                    setTimeout(() => {
+                        const bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    }, 500);
+                }, 5000);
+            }
+        }
+        
+        function createStatusArea() {
+            const statusArea = document.createElement('div');
+            statusArea.id = 'status-messages';
+            statusArea.className = 'position-fixed top-0 end-0 p-3';
+            statusArea.style.zIndex = '1050';
+            document.body.appendChild(statusArea);
+            return statusArea;
+        }
+        
+        // Handle Enter key in textarea
+        messageInput.addEventListener('keydown', function(e) {
+            // If Enter is pressed without Shift, submit the form
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.dispatchEvent(new Event('submit'));
+            }
+        });
+        
+        // Submit form with AJAX and enhanced animations
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const message = messageInput.value.trim();
+            if (!message) {
+                showStatusMessage('Please enter a message', 'warning');
+                return;
+            }
+            
+            // Disable form and show processing state
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
+            // Don't generate timestamp here - let server handle it
+            // Add user message with placeholder timestamp
+            const userMessageElement = createMessageElement(true, message, 'Sending...');
+            chatContainer.appendChild(userMessageElement);
+            scrollToBottom();
+            
+            // Add loading indicator with animation
+            const loadingIndicator = createLoadingIndicator();
+            chatContainer.appendChild(loadingIndicator);
+            scrollToBottom();
+            
+            // Clear input
+            messageInput.value = '';
+            
+            // Send AJAX request
+            const formData = new FormData();
+            formData.append('message', message);
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            // Send request
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Remove loading indicator
+                loadingIndicator.classList.add('animate__fadeOut');
+                setTimeout(() => chatContainer.removeChild(loadingIndicator), 500);
+                
+                // Remove placeholder user message
+                chatContainer.removeChild(userMessageElement);
+                
+                if (data.status === 'success') {
+                    // Add both messages with server-generated timestamps
+                    const newUserMessage = createMessageElement(true, data.user_message.content, data.user_message.timestamp);
+                    const aiMessage = createMessageElement(false, data.ai_message.content, data.ai_message.timestamp);
+                    
+                    chatContainer.appendChild(newUserMessage);
+                    setTimeout(() => {
+                        chatContainer.appendChild(aiMessage);
+                        scrollToBottom();
+                    }, 500);
+                } else {
+                    // Handle error response
+                    const errorMessage = data.message || 'An error occurred. Please try again.';
+                    showStatusMessage(errorMessage, 'danger');
+                }
+            })
+            .catch(error => {
+                // Remove loading indicator
+                loadingIndicator.classList.add('animate__fadeOut');
+                setTimeout(() => {
+                    if (loadingIndicator.parentNode === chatContainer) {
+                        chatContainer.removeChild(loadingIndicator);
+                    }
+                }, 500);
+                
+                // Add error message with animation
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'alert alert-danger mt-3 mb-3 animate__animated animate__fadeIn';
+                errorDiv.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <div>Network error: ${error.message || 'Could not connect to server'}. Please try again.</div>
+                    </div>
+                `;
+                chatContainer.appendChild(errorDiv);
+                
+                console.error('Error:', error);
+                scrollToBottom();
+                
+                // Auto-hide error after 8 seconds
+                setTimeout(() => {
+                    errorDiv.classList.remove('animate__fadeIn');
+                    errorDiv.classList.add('animate__fadeOut');
+                    setTimeout(() => errorDiv.remove(), 1000);
+                }, 8000);
+            })
+            .finally(() => {
+                // Re-enable form with original button state
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                sendButton.innerHTML = '<i class="fa fa-paper-plane me-1"></i> Send';
+                messageInput.focus();
+            });
+        });
+    });
+</script>
+{% endblock %}
