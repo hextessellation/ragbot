@@ -201,6 +201,3 @@ curl http://localhost:11434/api/generate -d '{"model": "llama3.1:8b-instruct-q4_
 - Adjust chunk size in document processing for large files
 - Monitor system resources during processing
 
-## License
-
-This project is licensed under the MIT License.
