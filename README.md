@@ -43,8 +43,8 @@ ragchatbot/
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/YOUR_USERNAME/RAG_LLM.git
-cd RAG_LLM/ragchatbot
+git clone https://github.com/hextessellation/ragbot.git
+cd ragbot/ragchatbot
 ```
 
 2. **Create virtual environment**
